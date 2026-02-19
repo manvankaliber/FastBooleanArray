@@ -86,20 +86,38 @@ export default class FastBooleanArray {
    * @param {number} newSize - The new size of the array.
    */
   resize(newSize: number) {
-    if (!newSize) throw new RangeError(ERROR_INVALID_SIZE);
+    if (newSize <= 0) throw new RangeError(ERROR_INVALID_SIZE);
 
+    const oldSize = this.size;
+    if (newSize === oldSize) return;
+
+    const oldLen = this.buffer.length;
     const newLen = (newSize + 7) >> 3;
-    const newBuffer = new Uint8Array(newLen);
 
-    const copyLen = Math.min(this.buffer.length, newLen);
-    newBuffer.set(this.buffer.subarray(0, copyLen));
+    if (newLen === oldLen) {
+      this.size = newSize;
+
+      if (newSize < oldSize) {
+        const rem = newSize & 7;
+        if (rem !== 0) this.buffer[newLen - 1] &= (1 << rem) - 1;
+      }
+      return;
+    }
+
+    let newBuffer = this.buffer.slice(0, Math.min(oldLen, newLen));
+
+    if (newLen > newBuffer.length) {
+      const grown = new Uint8Array(newLen);
+      grown.set(newBuffer);
+      newBuffer = grown;
+    }
 
     this.size = newSize;
     this.buffer = newBuffer;
 
-    const rem = newSize & 7;
-    if (rem !== 0) {
-      this.buffer[newLen - 1] &= (1 << rem) - 1;
+    if (newSize < oldSize) {
+      const rem = newSize & 7;
+      if (rem !== 0) this.buffer[newLen - 1] &= (1 << rem) - 1;
     }
   }
 
@@ -164,7 +182,11 @@ export default class FastBooleanArray {
    * @param {Function} callback - The function to execute on each element.
    */
   map(
-    callback: (value: boolean, index: number, array: FastBooleanArray) => boolean,
+    callback: (
+      value: boolean,
+      index: number,
+      array: FastBooleanArray,
+    ) => boolean,
   ) {
     const result = new Array(this.size);
     for (let i = 0; i < this.size; i++) {
