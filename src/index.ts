@@ -8,6 +8,7 @@ export default class FastBooleanArray {
     if (!size) {
       throw new Error("FastBooleanArray must have a size greater than 0");
     }
+
     this.size = size;
     this.buffer = new Uint8Array(Math.ceil(size / 8)); // Allocate memory
   }
@@ -22,10 +23,10 @@ export default class FastBooleanArray {
     if (value) {
       this.buffer[index >> 3] |= 1 << (index & 7); // Set bit
       return true;
-    } else {
-      this.buffer[index >> 3] &= ~(1 << (index & 7)); // Clear bit
-      return false;
     }
+
+    this.buffer[index >> 3] &= ~(1 << (index & 7)); // Clear bit
+    return false;
   }
 
   /**
@@ -86,7 +87,7 @@ export default class FastBooleanArray {
   resize(newSize: number) {
     const newBuffer = new Uint8Array(Math.ceil(newSize / 8));
     newBuffer.set(
-      this.buffer.subarray(0, Math.min(this.buffer.length, newBuffer.length))
+      this.buffer.subarray(0, Math.min(this.buffer.length, newBuffer.length)),
     );
     this.size = newSize;
     this.buffer = newBuffer;
@@ -102,10 +103,18 @@ export default class FastBooleanArray {
    * @returns {boolean} True if both arrays are equal, false otherwise.
    */
   equals(other: FastBooleanArray) {
-    if (this.size !== other.size) {
-      return false;
+    if (this.size !== other.size) return false;
+
+    const fullBytes = this.size >> 3;
+    for (let i = 0; i < fullBytes; i++) {
+      if (this.buffer[i] !== other.buffer[i]) return false;
     }
-    return this.buffer.every((byte, i) => byte === other.buffer[i]);
+
+    const rem = this.size & 7;
+    if (rem === 0) return true;
+
+    const mask = (1 << rem) - 1; // keep only valid bits in last byte
+    return (this.buffer[fullBytes] & mask) === (other.buffer[fullBytes] & mask);
   }
 
   /**
@@ -159,7 +168,7 @@ export default class FastBooleanArray {
    * @param {Function} callback - The function to execute on each element.
    */
   forEach(
-    callback: (value: boolean, index: number, array: FastBooleanArray) => void
+    callback: (value: boolean, index: number, array: FastBooleanArray) => void,
   ) {
     for (let i = 0; i < this.size; i++) {
       callback(this.get(i), i, this);
@@ -171,7 +180,7 @@ export default class FastBooleanArray {
    * @param {Function} callback - The function to execute on each element.
    */
   map(
-    callback: (value: boolean, index: number, array: FastBooleanArray) => never
+    callback: (value: boolean, index: number, array: FastBooleanArray) => never,
   ) {
     const result = new Array(this.size);
     for (let i = 0; i < this.size; i++) {
@@ -188,8 +197,8 @@ export default class FastBooleanArray {
     callback: (
       value: boolean,
       index: number,
-      array: FastBooleanArray
-    ) => boolean
+      array: FastBooleanArray,
+    ) => boolean,
   ) {
     const result: boolean[] = [];
     for (let i = 0; i < this.size; i++) {
@@ -209,8 +218,8 @@ export default class FastBooleanArray {
     callback: (
       value: boolean,
       index: number,
-      array: FastBooleanArray
-    ) => boolean
+      array: FastBooleanArray,
+    ) => boolean,
   ) {
     for (let i = 0; i < this.size; i++) {
       if (callback(this.get(i), i, this)) {
@@ -228,8 +237,8 @@ export default class FastBooleanArray {
     callback: (
       value: boolean,
       index: number,
-      array: FastBooleanArray
-    ) => boolean
+      array: FastBooleanArray,
+    ) => boolean,
   ) {
     for (let i = 0; i < this.size; i++) {
       if (!callback(this.get(i), i, this)) {
@@ -249,9 +258,9 @@ export default class FastBooleanArray {
       accumulator: T,
       value: boolean,
       index: number,
-      array: FastBooleanArray
+      array: FastBooleanArray,
     ) => T,
-    initialValue: T
+    initialValue: T,
   ): T {
     let accumulator = initialValue;
     for (let i = 0; i < this.size; i++) {
