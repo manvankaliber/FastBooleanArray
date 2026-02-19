@@ -20,9 +20,16 @@ function makeFilledInstance(Constructor, size) {
   return inst;
 }
 
-function runCompare(testName, devFn, relFn, runs = 5) {
+function makePlainArray(size) {
+  const a = new Array(size);
+  for (let i = 0; i < size; i++) a[i] = (i & 1) === 0;
+  return a;
+}
+
+function runCompare(testName, devFn, relFn, vanFn, runs = 5) {
   const devTime = avg(() => timeSync(devFn), runs);
   const relTime = avg(() => timeSync(relFn), runs);
+  const vanTime = avg(() => timeSync(vanFn), runs);
 
   // ANSI colors
   const RESET = "\x1b[0m";
@@ -33,27 +40,30 @@ function runCompare(testName, devFn, relFn, runs = 5) {
   // consistent column widths
   const devStr = `${devTime.toFixed(4)} ms`.padStart(14);
   const relStr = `${relTime.toFixed(4)} ms`.padStart(14);
-  const fasterTime = Math.min(devTime, relTime);
+  const vanStr = `${vanTime.toFixed(4)} ms`.padStart(14);
+  const fasterTime = Math.min(devTime, relTime, vanTime);
   const diffPct =
-    ((Math.max(devTime, relTime) - fasterTime) / fasterTime) * 100 || 0;
+    ((Math.max(devTime, relTime, vanTime) - fasterTime) / fasterTime) * 100 ||
+    0;
   const diffStr = `${diffPct.toFixed(2)}%`.padStart(8);
 
-  const winnerMarker =
-    devTime < relTime ?
-      `${FG_GREEN}(W: dev)${RESET}`
-    : `${FG_GREEN}(W: rel)${RESET}`;
+  let winnerMarker;
+  if (devTime === fasterTime) winnerMarker = `${FG_GREEN}(W: dev)${RESET}`;
+  else if (relTime === fasterTime) winnerMarker = `${FG_GREEN}(W: rel)${RESET}`;
+  else winnerMarker = `${FG_GREEN}(W: van)${RESET}`;
 
   console.log(
-    `${testName.padEnd(28)} | dev:${devStr} | rel:${relStr} | diff:${diffStr} | ${winnerMarker}`,
+    `${testName.padEnd(28)} | dev:${devStr} | rel:${relStr} | van:${vanStr} | diff:${diffStr} | ${winnerMarker}`,
   );
 
-  return { testName, devTime, relTime };
+  return { testName, devTime, relTime, vanTime };
 }
 
 // List of method tests. Each test returns a function for dev and release.
 function makeTests(size) {
   const devFactory = () => makeFilledInstance(DevBooleanArray, size);
   const relFactory = () => makeFilledInstance(FastBooleanArray, size);
+  const vanFactory = () => makePlainArray(size);
 
   return [
     // set (fresh instance)
@@ -67,6 +77,10 @@ function makeTests(size) {
         const a = new FastBooleanArray(size);
         for (let i = 0; i < size; i++) a.set(i, true);
       },
+      van: () => {
+        const a = new Array(size);
+        for (let i = 0; i < size; i++) a[i] = true;
+      },
     },
     // get
     {
@@ -78,6 +92,10 @@ function makeTests(size) {
       rel: () => {
         const a = relFactory();
         for (let i = 0; i < size; i++) a.get(i);
+      },
+      van: () => {
+        const a = vanFactory();
+        for (let i = 0; i < size; i++) void a[i];
       },
     },
     // setSafe
@@ -91,6 +109,10 @@ function makeTests(size) {
         const a = new FastBooleanArray(size);
         for (let i = 0; i < size; i++) a.setSafe(i, true);
       },
+      van: () => {
+        const a = new Array(size);
+        for (let i = 0; i < size; i++) a[i] = true;
+      },
     },
     // getSafe
     {
@@ -102,6 +124,12 @@ function makeTests(size) {
       rel: () => {
         const a = relFactory();
         for (let i = 0; i < size; i++) a.getSafe(i);
+      },
+      van: () => {
+        const a = vanFactory();
+        for (let i = 0; i < size; i++) {
+          const v = a[i];
+        }
       },
     },
     // setAll
@@ -115,6 +143,9 @@ function makeTests(size) {
         const a = new FastBooleanArray(size);
         a.setAll(true);
       },
+      van: () => {
+        const a = new Array(size).fill(true);
+      },
     },
     // resize
     {
@@ -126,6 +157,10 @@ function makeTests(size) {
       rel: () => {
         const a = new FastBooleanArray(size);
         a.resize(size * 2);
+      },
+      van: () => {
+        const a = new Array(size);
+        a.length = size * 2;
       },
     },
     // equals
@@ -141,6 +176,13 @@ function makeTests(size) {
         const b = relFactory();
         a.equals(b);
       },
+      van: () => {
+        const a = vanFactory();
+        const b = vanFactory();
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] !== b[i]) break;
+        }
+      },
     },
     // iterator
     {
@@ -151,6 +193,10 @@ function makeTests(size) {
       },
       rel: () => {
         const a = relFactory();
+        for (const v of a);
+      },
+      van: () => {
+        const a = vanFactory();
         for (const v of a);
       },
     },
@@ -165,6 +211,10 @@ function makeTests(size) {
         const a = relFactory();
         a.toArray();
       },
+      van: () => {
+        const a = vanFactory();
+        a.slice();
+      },
     },
     // forEach
     {
@@ -175,6 +225,10 @@ function makeTests(size) {
       },
       rel: () => {
         const a = relFactory();
+        a.forEach(() => {});
+      },
+      van: () => {
+        const a = vanFactory();
         a.forEach(() => {});
       },
     },
@@ -189,6 +243,10 @@ function makeTests(size) {
         const a = relFactory();
         a.map((v) => v);
       },
+      van: () => {
+        const a = vanFactory();
+        a.map((v) => v);
+      },
     },
     // filter
     {
@@ -199,6 +257,10 @@ function makeTests(size) {
       },
       rel: () => {
         const a = relFactory();
+        a.filter((v) => v);
+      },
+      van: () => {
+        const a = vanFactory();
         a.filter((v) => v);
       },
     },
@@ -213,6 +275,10 @@ function makeTests(size) {
         const a = relFactory();
         a.some((v) => v);
       },
+      van: () => {
+        const a = vanFactory();
+        a.some((v) => v);
+      },
     },
     // every
     {
@@ -223,6 +289,10 @@ function makeTests(size) {
       },
       rel: () => {
         const a = relFactory();
+        a.every((v) => typeof v === "boolean");
+      },
+      van: () => {
+        const a = vanFactory();
         a.every((v) => typeof v === "boolean");
       },
     },
@@ -237,6 +307,10 @@ function makeTests(size) {
         const a = relFactory();
         a.reduce((acc, v) => acc + (v ? 1 : 0), 0);
       },
+      van: () => {
+        const a = vanFactory();
+        a.reduce((acc, v) => acc + (v ? 1 : 0), 0);
+      },
     },
     // toString
     {
@@ -249,6 +323,10 @@ function makeTests(size) {
         const a = relFactory();
         a.toString();
       },
+      van: () => {
+        const a = vanFactory();
+        a.map((v) => (v ? "1" : "0")).join("");
+      },
     },
     // static fromString
     {
@@ -258,6 +336,9 @@ function makeTests(size) {
       },
       rel: () => {
         FastBooleanArray.fromString("1".repeat(size));
+      },
+      van: () => {
+        Array.from("1".repeat(size), (c) => c === "1");
       },
     },
     // static fromArray
@@ -269,6 +350,9 @@ function makeTests(size) {
       rel: () => {
         FastBooleanArray.from(new Array(size).fill(true));
       },
+      van: () => {
+        Array.from(new Array(size).fill(true));
+      },
     },
     // static from
     {
@@ -279,41 +363,49 @@ function makeTests(size) {
       rel: () => {
         FastBooleanArray.from(new Array(size).fill(true));
       },
+      van: () => {
+        Array.from(new Array(size).fill(true));
+      },
     },
   ];
 }
 
 console.clear();
-const sizes = [100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000];
+const sizes = [1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000];
 const allResults = {};
 for (const size of sizes) {
   console.log(`\n--- size: ${size} ---`);
   const tests = makeTests(size);
   let sizeDevTotal = 0;
   let sizeRelTotal = 0;
+  let sizeVanTotal = 0;
   // fixed number of runs per size
   const runsForSize = 5;
   for (const t of tests) {
-    const res = runCompare(t.name, t.dev, t.rel, runsForSize);
-    if (!allResults[t.name]) allResults[t.name] = { dev: 0, rel: 0, runs: 0 };
+    const res = runCompare(t.name, t.dev, t.rel, t.van, runsForSize);
+    if (!allResults[t.name])
+      allResults[t.name] = { dev: 0, rel: 0, van: 0, runs: 0 };
     allResults[t.name].dev += res.devTime;
     allResults[t.name].rel += res.relTime;
+    allResults[t.name].van += res.vanTime;
     allResults[t.name].runs += 1;
     sizeDevTotal += res.devTime;
     sizeRelTotal += res.relTime;
+    sizeVanTotal += res.vanTime;
   }
 
   // per-size winner
   const RESET = "\x1b[0m";
   const FG_GREEN = "\x1b[32m";
-  const winner = sizeDevTotal < sizeRelTotal ? "dev" : "release";
-  const fasterTime = Math.min(sizeDevTotal, sizeRelTotal);
-  const diffPct =
-    ((Math.max(sizeDevTotal, sizeRelTotal) - fasterTime) / fasterTime) * 100;
-  const winLabel =
-    winner === "dev" ? `${FG_GREEN}Dev${RESET}` : `${FG_GREEN}Release${RESET}`;
+  const fasterTime = Math.min(sizeDevTotal, sizeRelTotal, sizeVanTotal);
+  const maxTime = Math.max(sizeDevTotal, sizeRelTotal, sizeVanTotal);
+  const diffPct = ((maxTime - fasterTime) / fasterTime) * 100;
+  const winnerLabel =
+    fasterTime === sizeDevTotal ? `${FG_GREEN}Dev${RESET}`
+    : fasterTime === sizeRelTotal ? `${FG_GREEN}Release${RESET}`
+    : `${FG_GREEN}Plain${RESET}`;
   console.log(
-    `${winLabel} winner for size ${size} — faster by ${diffPct.toFixed(2)}%`,
+    `${winnerLabel} winner for size ${size} — faster by ${diffPct.toFixed(2)}%`,
   );
 }
 
@@ -326,36 +418,49 @@ const FG_CYAN = "\x1b[36m";
 
 let devWins = 0,
   relWins = 0;
+let vanWins = 0;
 
 // header
 console.log(
-  `${"Function".padEnd(18)} | ${"dev".padStart(14)} | ${"rel".padStart(14)} | ${"diff".padStart(8)} | winner`,
+  `${"Function".padEnd(18)} | ${"dev".padStart(14)} | ${"rel".padStart(14)} | ${"van".padStart(14)} | ${"diff".padStart(8)} | winner`,
 );
 for (const [name, data] of Object.entries(allResults)) {
   const devAvg = data.dev / data.runs;
   const relAvg = data.rel / data.runs;
-  const faster = devAvg < relAvg ? "dev" : "rel";
-  const fasterTime = Math.min(devAvg, relAvg);
-  const diffPct =
-    ((Math.max(devAvg, relAvg) - fasterTime) / fasterTime) * 100 || 0;
+  const vanAvg = (data.van || 0) / data.runs;
+  const fasterAll = Math.min(devAvg, relAvg, vanAvg);
+  const maxAll = Math.max(devAvg, relAvg, vanAvg);
+  const diffPct = ((maxAll - fasterAll) / fasterAll) * 100 || 0;
 
   const devStr = `${devAvg.toFixed(4)} ms`.padStart(14);
   const relStr = `${relAvg.toFixed(4)} ms`.padStart(14);
+  const vanStr = `${vanAvg.toFixed(4)} ms`.padStart(14);
   const diffStr = `${diffPct.toFixed(2)}%`.padStart(8);
   const winnerMarker =
-    faster === "dev" ? `${FG_GREEN}W: dev${RESET}` : `${FG_RED}W: rel${RESET}`;
+    fasterAll === devAvg ? `${FG_GREEN}W: dev${RESET}`
+    : fasterAll === relAvg ? `${FG_RED}W: rel${RESET}`
+    : `${FG_GREEN}W: van${RESET}`;
 
   console.log(
-    `${name.padEnd(18)} | ${devStr} | ${relStr} | ${diffStr} | ${winnerMarker}`,
+    `${name.padEnd(18)} | ${devStr} | ${relStr} | ${vanStr} | ${diffStr} | ${winnerMarker}`,
   );
 
-  if (faster === "dev") devWins++;
-  else relWins++;
+  if (fasterAll === devAvg) devWins++;
+  else if (fasterAll === relAvg) relWins++;
+  else vanWins++;
 }
 
 // overall winner
-const overallWinner = devWins > relWins ? "Dev" : "Release";
-const overallColor = devWins > relWins ? FG_GREEN : FG_RED;
+const counts = { dev: devWins, rel: relWins, van: vanWins };
+const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+const overallColor =
+  best === "dev" ? FG_GREEN
+  : best === "rel" ? FG_RED
+  : FG_GREEN;
+const overallLabel =
+  best === "dev" ? "Dev"
+  : best === "rel" ? "Release"
+  : "Plain";
 console.log(
-  `\n${FG_CYAN}Overall winner:${RESET} ${overallColor}${overallWinner}${RESET} (dev ${devWins} — rel ${relWins})`,
+  `\n${FG_CYAN}Overall winner:${RESET} ${overallColor}${overallLabel}${RESET} (dev ${devWins} — rel ${relWins} — van ${vanWins})`,
 );
