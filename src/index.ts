@@ -1,4 +1,5 @@
 const ERROR_OUT_OF_BOUNDS = "Index out of bounds";
+const ERROR_INVALID_SIZE = "new FastBooleanArray size must be greater than 0";
 
 export default class FastBooleanArray {
   public size: number;
@@ -6,7 +7,7 @@ export default class FastBooleanArray {
 
   constructor(size: number) {
     if (!size) {
-      throw new Error("FastBooleanArray must have a size greater than 0");
+      throw new RangeError(ERROR_INVALID_SIZE);
     }
 
     this.size = size;
@@ -85,12 +86,21 @@ export default class FastBooleanArray {
    * @param {number} newSize - The new size of the array.
    */
   resize(newSize: number) {
-    const newBuffer = new Uint8Array(Math.ceil(newSize / 8));
-    newBuffer.set(
-      this.buffer.subarray(0, Math.min(this.buffer.length, newBuffer.length)),
-    );
+    if (!newSize) throw new RangeError(ERROR_INVALID_SIZE);
+
+    const newLen = (newSize + 7) >> 3;
+    const newBuffer = new Uint8Array(newLen);
+
+    const copyLen = Math.min(this.buffer.length, newLen);
+    newBuffer.set(this.buffer.subarray(0, copyLen));
+
     this.size = newSize;
     this.buffer = newBuffer;
+
+    const rem = newSize & 7;
+    if (rem !== 0) {
+      this.buffer[newLen - 1] &= (1 << rem) - 1;
+    }
   }
 
   get length() {
@@ -135,32 +145,6 @@ export default class FastBooleanArray {
       arr[i] = this.get(i);
     }
     return arr;
-  }
-
-  /**
-   * Returns a proxy to the FastBooleanArray instance
-   * With this you can access indexes like on an actual array.
-   */
-  accessLikeArray() {
-    return new Proxy(this, {
-      get: (target, prop) => {
-        if (typeof prop === "string" && !isNaN(Number(prop))) {
-          const index = Number(prop);
-          return target.get(index);
-        }
-        return target[prop as keyof FastBooleanArray];
-      },
-      set: (target, prop, value) => {
-        if (typeof prop === "string" && !isNaN(Number(prop))) {
-          const index = Number(prop);
-          target.set(index, value as never);
-        } else {
-          target[prop as Exclude<keyof FastBooleanArray, "length">] = value;
-        }
-
-        return true;
-      },
-    });
   }
 
   /**
@@ -273,11 +257,31 @@ export default class FastBooleanArray {
    * Generates a string where every boolean is either a 0 or 1.
    */
   toString() {
-    let result = ``;
-    for (let i = 0; i < this.size; i++) {
-      result += this.get(i) ? "1" : "0";
+    const out = new Array(this.size);
+    let k = 0;
+
+    const fullBytes = this.size >> 3;
+    for (let i = 0; i < fullBytes; i++) {
+      const b = this.buffer[i];
+      out[k++] = b & 1 ? "1" : "0";
+      out[k++] = b & 2 ? "1" : "0";
+      out[k++] = b & 4 ? "1" : "0";
+      out[k++] = b & 8 ? "1" : "0";
+      out[k++] = b & 16 ? "1" : "0";
+      out[k++] = b & 32 ? "1" : "0";
+      out[k++] = b & 64 ? "1" : "0";
+      out[k++] = b & 128 ? "1" : "0";
     }
-    return result;
+
+    const rem = this.size & 7;
+    if (rem) {
+      const b = this.buffer[fullBytes];
+      for (let bit = 0; bit < rem; bit++) {
+        out[k++] = b & (1 << bit) ? "1" : "0";
+      }
+    }
+
+    return out.join("");
   }
 
   /**
