@@ -48,6 +48,12 @@ export default class FastBooleanArray {
    */
   setAll(value: boolean) {
     this.buffer.fill(value ? 0xff : 0x00);
+
+    const rem = this.size & 7;
+    if (value && rem !== 0) {
+      const last = this.buffer.length - 1;
+      this.buffer[last] &= (1 << rem) - 1;
+    }
   }
 
   /**
