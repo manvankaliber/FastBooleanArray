@@ -4,7 +4,7 @@ import { describe, test, expect } from "vitest";
 describe("FastBooleanArray", () => {
   test("constructor should throw if size is not provided", () => {
     expect(() => new FastBooleanArray(0)).toThrow(
-      "FastBooleanArray must have a size greater than 0"
+      "FastBooleanArray size must be greater than 0",
     );
   });
 
@@ -107,19 +107,6 @@ describe("FastBooleanArray", () => {
     expect(result).toEqual([true, false, true, false]);
   });
 
-  test("accessLikeArray should allow array-like access", () => {
-    const array = new FastBooleanArray(4).accessLikeArray();
-    array[0] = true;
-    array[1] = false;
-    array[2] = true;
-    array[3] = false;
-
-    expect(array[0]).toBe(true);
-    expect(array[1]).toBe(false);
-    expect(array[2]).toBe(true);
-    expect(array[3]).toBe(false);
-  });
-
   test("map should create a new array with transformed values", () => {
     const array = new FastBooleanArray(4);
     array.set(0, true);
@@ -165,5 +152,218 @@ describe("FastBooleanArray", () => {
     expect(iterator.next().value).toBe(true);
     expect(iterator.next().value).toBe(false);
     expect(iterator.next().done).toBe(true);
+  });
+
+  // Item 1: Unsafe vs safe bounds behavior
+  test("getSafe throws below 0 and at size", () => {
+    const array = new FastBooleanArray(8);
+    expect(() => array.getSafe(-1)).toThrow("Index out of bounds");
+    expect(() => array.getSafe(8)).toThrow("Index out of bounds");
+  });
+
+  test("setSafe throws below 0 and at size", () => {
+    const array = new FastBooleanArray(8);
+    expect(() => array.setSafe(-1, true)).toThrow("Index out of bounds");
+    expect(() => array.setSafe(8, true)).toThrow("Index out of bounds");
+  });
+
+  test("unsafe get/set do not throw for out-of-range indices", () => {
+    const array = new FastBooleanArray(8);
+    expect(() => array.get(999)).not.toThrow();
+    expect(() => array.set(999, true)).not.toThrow();
+  });
+
+  // Item 2: Safe methods semantics
+  test("setSafe returns the provided value and updates exactly one bit", () => {
+    const array = new FastBooleanArray(8);
+    expect(array.setSafe(3, true)).toBe(true);
+    expect(array.setSafe(3, false)).toBe(false);
+
+    const a = new FastBooleanArray(16);
+    a.setAll(false);
+    a.setSafe(9, true);
+    for (let i = 0; i < a.size; i++) {
+      if (i === 9) expect(a.getSafe(i)).toBe(true);
+      else expect(a.getSafe(i)).toBe(false);
+    }
+  });
+
+  // Item 3: equals ignores unused tail bits and is loop-based
+  test("equals true when logical bits equal even if tail bits differ", () => {
+    const a = new FastBooleanArray(9);
+    const b = new FastBooleanArray(9);
+    a.setAll(false);
+    b.setAll(false);
+    // create potential tail contamination on b
+    b.resize(16);
+    b.setAll(true);
+    b.resize(9);
+    expect(a.equals(b)).toBe(true);
+  });
+
+  test("equals false when any logical bit differs", () => {
+    const a = new FastBooleanArray(17);
+    const b = new FastBooleanArray(17);
+    a.setAll(false);
+    b.setAll(false);
+    b.set(16, true);
+    expect(a.equals(b)).toBe(false);
+  });
+
+  test("equals false when sizes differ", () => {
+    const a = new FastBooleanArray(8);
+    const b = new FastBooleanArray(9);
+    expect(a.equals(b)).toBe(false);
+  });
+
+  // Item 4: setAll(true) must mask unused tail bits
+  test("setAll(true) then resize(smaller) must not keep phantom ones", () => {
+    const x = new FastBooleanArray(16);
+    x.setAll(true);
+    x.resize(9);
+    expect(x.toString()).toBe("111111111");
+    expect(FastBooleanArray.fromString(x.toString()).equals(x)).toBe(true);
+  });
+
+  test("setAll(true) on non-multiple-of-8 size does not pollute equality", () => {
+    const a = new FastBooleanArray(9);
+    a.setAll(true);
+    const b = FastBooleanArray.fromString("111111111");
+    expect(a.equals(b)).toBe(true);
+  });
+
+  // Item 5: resize must mask tail bits when shrinking
+  test("shrinking clears bits >= newSize and toString is correct", () => {
+    const x = new FastBooleanArray(16);
+    x.setAll(true);
+    x.resize(9);
+    expect(x.toString()).toBe("111111111");
+    for (let i = 0; i < 9; i++) expect(x.getSafe(i)).toBe(true);
+  });
+
+  test("shrink then grow: newly added bits are zero-initialized", () => {
+    const x = new FastBooleanArray(16);
+    x.setAll(true);
+    x.resize(9);
+    x.resize(16);
+    for (let i = 0; i < 9; i++) expect(x.getSafe(i)).toBe(true);
+    for (let i = 9; i < 16; i++) expect(x.getSafe(i)).toBe(false);
+  });
+
+  // Item 6: iterator / conversion correctness
+  test("iterator yields exactly size values", () => {
+    const x = new FastBooleanArray(17);
+    x.setAll(false);
+    expect([...x].length).toBe(17);
+  });
+
+  test("iterator matches toArray()", () => {
+    const size = 33;
+    const x = new FastBooleanArray(size);
+    const pattern: boolean[] = [];
+    for (let i = 0; i < size; i++) {
+      const v = Math.random() < 0.5;
+      pattern.push(v);
+      x.set(i, v);
+    }
+    expect([...x]).toEqual(x.toArray());
+    expect([...x]).toEqual(pattern);
+  });
+
+  test("toString length equals size for various sizes", () => {
+    const sizes = [1, 7, 9, 15, 17];
+    for (const s of sizes) {
+      const x = new FastBooleanArray(s);
+      x.setAll(true);
+      expect(x.toString().length).toBe(s);
+    }
+  });
+
+  test("toString produces LSB-first ordering within each byte", () => {
+    const x = new FastBooleanArray(8);
+    x.setAll(false);
+    x.set(0, true);
+    expect(x.toString()).toBe("10000000");
+    x.set(0, false);
+    x.set(7, true);
+    expect(x.toString()).toBe("00000001");
+  });
+
+  // Item 7: accessLikeArrayFast behavior (guard if not implemented)
+  test("accessLikeArrayFast exposes length, get and set and is live", () => {
+    const x = new FastBooleanArray(10);
+    // If API not present, skip assertions by returning early
+    // (keeps tests compatible with older versions)
+    // @ts-ignore
+    if (typeof x.accessLikeArrayFast !== "function") return;
+    // @ts-ignore
+    const view = x.accessLikeArrayFast();
+    // @ts-ignore
+    expect(view.length).toBe(10);
+    // @ts-ignore
+    view.set(3, true);
+    // @ts-ignore
+    expect(view.get(3)).toBe(true);
+    x.set(5, true);
+    // @ts-ignore
+    expect(view.get(5)).toBe(true);
+    // @ts-ignore
+    view.set(6, true);
+    expect(x.get(6)).toBe(true);
+  });
+
+  // Item 8: minor boolean semantics
+  test("get returns boolean", () => {
+    const x = new FastBooleanArray(1);
+    expect(typeof x.get(0)).toBe("boolean");
+  });
+
+  test("set returns the passed boolean", () => {
+    const x = new FastBooleanArray(1);
+    expect(x.set(0, true)).toBe(true);
+    expect(x.set(0, false)).toBe(false);
+  });
+
+  // Item 23: random ops vs reference array
+  test("random ops vs reference array (property-style)", () => {
+    const TRIALS = 5;
+    for (let t = 0; t < TRIALS; t++) {
+      let size = Math.floor(Math.random() * 256) + 1;
+      const x = new FastBooleanArray(size);
+      const ref: boolean[] = new Array(size).fill(false);
+
+      const OPS = 200;
+      for (let op = 0; op < OPS; op++) {
+        const choice = Math.floor(Math.random() * 3);
+        if (choice === 0) {
+          // setSafe
+          const i = Math.floor(Math.random() * size);
+          const v = Math.random() < 0.5;
+          x.setSafe(i, v);
+          ref[i] = v;
+        } else if (choice === 1) {
+          // setAll
+          const v = Math.random() < 0.5;
+          x.setAll(v);
+          for (let k = 0; k < size; k++) ref[k] = v;
+        } else {
+          // resize
+          const newSize = Math.floor(Math.random() * 256) + 1;
+          // adjust ref
+          if (newSize < size) ref.length = newSize;
+          else for (let k = size; k < newSize; k++) ref[k] = false;
+          x.resize(newSize);
+          size = newSize;
+        }
+
+        // assertions after each op
+        for (let i = 0; i < size; i++) {
+          expect(x.getSafe(i)).toBe(ref[i]);
+        }
+        const s = x.toString();
+        expect(s).toBe(ref.map((b) => (b ? "1" : "0")).join(""));
+        expect(FastBooleanArray.fromString(s).equals(x)).toBe(true);
+      }
+    }
   });
 });

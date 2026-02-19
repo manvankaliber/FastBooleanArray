@@ -1,5 +1,5 @@
 const ERROR_OUT_OF_BOUNDS = "Index out of bounds";
-const ERROR_INVALID_SIZE = "new FastBooleanArray size must be greater than 0";
+const ERROR_INVALID_SIZE = "FastBooleanArray size must be greater than 0";
 
 export default class FastBooleanArray {
   public size: number;
@@ -164,7 +164,7 @@ export default class FastBooleanArray {
    * @param {Function} callback - The function to execute on each element.
    */
   map(
-    callback: (value: boolean, index: number, array: FastBooleanArray) => never,
+    callback: (value: boolean, index: number, array: FastBooleanArray) => boolean,
   ) {
     const result = new Array(this.size);
     for (let i = 0; i < this.size; i++) {
