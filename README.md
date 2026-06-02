@@ -10,9 +10,7 @@ For detailed benchmark results, see below.
 
 - **Memory Efficiency**: Stores booleans in bits rather than bytes, drastically reducing memory usage.
 - **Fast Set Performance**: Up to 10x faster sets for fast data re-mapping.
-- **Familiar API**: `Map` and `Set` like API for minimal learning curve. Intuitive helper functions, and works in `for.. of`.
-- **Array like interface**: call `.accessLikeArray()` to access it like an array`someArray[index]` (beware of the performance penalty caused by the Proxy)!
-
+- **Familiar API**: `Map` and `Set` like API for minimal learning curve. Intuitive Array like helper functions, and works in `for.. of`.
 ---
 
 ## Usage example:
