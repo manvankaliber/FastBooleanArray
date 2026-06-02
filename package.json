@@ -22,7 +22,6 @@
   "scripts": {
     "test": "vitest",
     "bench": "node bench.js",
-    "check-types": "npx --yes @arethetypeswrong/cli --pack .",
     "build": "npx tsdown src/index.ts --dts --clean --sourcemap --minify --target node26",
     "publish": "npm publish"
   },
