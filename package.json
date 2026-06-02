@@ -1,6 +1,6 @@
 {
   "name": "fast-boolean-array",
-  "version": "1.7.1",
+  "version": "2.0.0",
   "homepage": "https://github.com/UltraCakeBakery/FastBooleanArray",
   "repository": {
     "type": "git",
@@ -11,24 +11,19 @@
     "email": "fast-boolean-array@managing.software"
   },
   "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
-    "import": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "require": {
-      "types": "./dist/index.d.cts",
-      "require": "./dist/index.cjs"
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
   "scripts": {
     "test": "vitest",
     "bench": "node bench.js",
     "check-types": "npx --yes @arethetypeswrong/cli --pack .",
-    "build": "tsup src/index.ts --dts --format cjs,esm --clean --sourcemap --minify --target node16",
+    "build": "npx tsdown src/index.ts --dts --clean --sourcemap --minify --target node26",
     "publish": "npm publish"
   },
   "keywords": [
@@ -40,15 +35,15 @@
   ],
   "author": "Jack van der Bil  <jack@managing.software> (https://jackvanderbilt.nl)",
   "license": "MIT",
-  "description": "",
+  "description": "A fast and memory-efficient JavaScript array alternative for storing Boolean's, enabling fast indexing and retrieval.",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=26.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.3.0",
+    "@types/node": "^25.9.1",
     "fast-boolean-array": "^1.7.1",
-    "tsup": "^8.5.1",
+    "tsdown": "^0.22.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.8"
   }
 }

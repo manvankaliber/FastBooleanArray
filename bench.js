@@ -1,4 +1,4 @@
-import DevBooleanArray from "./dist/index.js";
+import DevBooleanArray from "./dist/index.mjs";
 import FastBooleanArray from "fast-boolean-array";
 import { performance } from "node:perf_hooks";
 

@@ -21,7 +21,6 @@ Here's how to use the Fast Boolean Array:
 
 ```javascript
 import BooleanArray from "fast-boolean-array";
-// const BooleanArray = require('fast-boolean-array'); commonjs works too.
 
 // Create a new BooleanArray with the desired length
 const booleans = new BooleanArray(2);

@@ -1,4 +1,4 @@
-import FastBooleanArray from "../dist";
+import FastBooleanArray from "../dist/index.mjs";
 import { describe, test, expect } from "vitest";
 
 describe("FastBooleanArray", () => {
@@ -154,7 +154,6 @@ describe("FastBooleanArray", () => {
     expect(iterator.next().done).toBe(true);
   });
 
-  // Item 1: Unsafe vs safe bounds behavior
   test("getSafe throws below 0 and at size", () => {
     const array = new FastBooleanArray(8);
     expect(() => array.getSafe(-1)).toThrow("Index out of bounds");
@@ -173,7 +172,7 @@ describe("FastBooleanArray", () => {
     expect(() => array.set(999, true)).not.toThrow();
   });
 
-  // Item 2: Safe methods semantics
+
   test("setSafe returns the provided value and updates exactly one bit", () => {
     const array = new FastBooleanArray(8);
     expect(array.setSafe(3, true)).toBe(true);
@@ -188,16 +187,13 @@ describe("FastBooleanArray", () => {
     }
   });
 
-  // Item 3: equals ignores unused tail bits and is loop-based
   test("equals true when logical bits equal even if tail bits differ", () => {
     const a = new FastBooleanArray(9);
     const b = new FastBooleanArray(9);
     a.setAll(false);
     b.setAll(false);
-    // create potential tail contamination on b
-    b.resize(16);
-    b.setAll(true);
-    b.resize(9);
+    // Dirty an unused tail bit without changing any logical bits.
+    b.set(15, true);
     expect(a.equals(b)).toBe(true);
   });
 
@@ -216,7 +212,6 @@ describe("FastBooleanArray", () => {
     expect(a.equals(b)).toBe(false);
   });
 
-  // Item 4: setAll(true) must mask unused tail bits
   test("setAll(true) then resize(smaller) must not keep phantom ones", () => {
     const x = new FastBooleanArray(16);
     x.setAll(true);
@@ -232,7 +227,6 @@ describe("FastBooleanArray", () => {
     expect(a.equals(b)).toBe(true);
   });
 
-  // Item 5: resize must mask tail bits when shrinking
   test("shrinking clears bits >= newSize and toString is correct", () => {
     const x = new FastBooleanArray(16);
     x.setAll(true);
@@ -250,7 +244,6 @@ describe("FastBooleanArray", () => {
     for (let i = 9; i < 16; i++) expect(x.getSafe(i)).toBe(false);
   });
 
-  // Item 6: iterator / conversion correctness
   test("iterator yields exactly size values", () => {
     const x = new FastBooleanArray(17);
     x.setAll(false);
@@ -289,30 +282,6 @@ describe("FastBooleanArray", () => {
     expect(x.toString()).toBe("00000001");
   });
 
-  // Item 7: accessLikeArrayFast behavior (guard if not implemented)
-  test("accessLikeArrayFast exposes length, get and set and is live", () => {
-    const x = new FastBooleanArray(10);
-    // If API not present, skip assertions by returning early
-    // (keeps tests compatible with older versions)
-    // @ts-ignore
-    if (typeof x.accessLikeArrayFast !== "function") return;
-    // @ts-ignore
-    const view = x.accessLikeArrayFast();
-    // @ts-ignore
-    expect(view.length).toBe(10);
-    // @ts-ignore
-    view.set(3, true);
-    // @ts-ignore
-    expect(view.get(3)).toBe(true);
-    x.set(5, true);
-    // @ts-ignore
-    expect(view.get(5)).toBe(true);
-    // @ts-ignore
-    view.set(6, true);
-    expect(x.get(6)).toBe(true);
-  });
-
-  // Item 8: minor boolean semantics
   test("get returns boolean", () => {
     const x = new FastBooleanArray(1);
     expect(typeof x.get(0)).toBe("boolean");
@@ -324,7 +293,6 @@ describe("FastBooleanArray", () => {
     expect(x.set(0, false)).toBe(false);
   });
 
-  // Item 23: random ops vs reference array
   test("random ops vs reference array (property-style)", () => {
     const TRIALS = 5;
     for (let t = 0; t < TRIALS; t++) {
