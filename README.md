@@ -1,4 +1,4 @@
-# Fast Boolean Array ![Build](https://github.com/UltraCakeBakery/FastBooleanArray/actions/workflows/ci.yml/badge.svg?event=push)
+# Fast Boolean Array ![Build](https://github.com/UltraCakeBakery/FastBooleanArray/actions/workflows/tests.yml/badge.svg?event=push)
 
 In JavaScript, when working with large arrays of boolean values, a common challenge is efficiently indexing and retrieving these values. Using a regular JavaScript array to store booleans is straightforward, but it is memory-inefficient. While booleans are conceptually 1-bit values, JavaScript engines, like V8 (in Chrome and Node.js), allocate 1 byte (8 bits) per boolean for optimization purposes. This can waste a significant amount of memory when dealing with large arrays.
 
